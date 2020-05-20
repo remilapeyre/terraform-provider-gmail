@@ -14,6 +14,24 @@ func resourceGmailLabel() *schema.Resource {
 		Read:   resourceGmailLabelRead,
 		Update: resourceGmailLabelUpdate,
 		Delete: resourceGmailLabelDelete,
+		Importer: &schema.ResourceImporter{
+			State: func(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+				// We have to find the actual ID from the name
+				srv, userID := getService(d, meta)
+				call := srv.Users.Labels.List(userID)
+				labels, err := call.Do()
+				if err != nil {
+					return nil, fmt.Errorf("failed to get the list of labels: %v", err)
+				}
+				for _, l := range labels.Labels {
+					if l.Name == d.Id() {
+						d.SetId(l.Id)
+						return []*schema.ResourceData{d}, nil
+					}
+				}
+				return nil, fmt.Errorf("could not find label %q", d.Id())
+			},
+		},
 		Schema: map[string]*schema.Schema{
 			"user_id": {
 				Type:     schema.TypeString,
